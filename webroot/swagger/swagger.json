@@ -1,0 +1,281 @@
+{
+  "consumes": [
+    "multipart/form-data",
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "Package Video Splitter for spin360",
+    "version": "1.0.1"
+  },
+  "host": "API_HOST",
+  "basePath": "/",
+  "paths": {
+    "/config": {
+      "post": {
+        "description": "保存播放器配置，返回配置文件的URL",
+        "consumes": [
+          "application/json",
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "configParams",
+        "parameters": [
+          {
+            "description": "配置",
+            "name": "Body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Spin360Config"
+            }
+          },
+          {
+            "type": "string",
+            "description": "配置hash, 如提供即更新已有配置",
+            "name": "hash",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/s3": {
+      "post": {
+        "description": "视频截图，返回task（任务）ID",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "post",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "视频文件",
+            "name": "video",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "截图总数",
+            "name": "splitSize",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/split": {
+      "post": {
+        "description": "分割Video 并下载截图zip包",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "post",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "视频文件",
+            "name": "video",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "截图总数",
+            "name": "splitSize",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/task": {
+      "get": {
+        "description": "获取task （任务）状态",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "task",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Task（任务）ID",
+            "name": "id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "HotSpotCoordinates": {
+      "type": "object",
+      "required": [
+        "index",
+        "x",
+        "y"
+      ],
+      "properties": {
+        "index": {
+          "description": "所在图片索引",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "PageIndex"
+        },
+        "x": {
+          "description": "X 坐标位置",
+          "type": "string",
+          "x-go-name": "X"
+        },
+        "y": {
+          "description": "Y 坐标位置",
+          "type": "string",
+          "x-go-name": "Y"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "PageHotSpot": {
+      "type": "object",
+      "required": [
+        "type",
+        "url",
+        "text",
+        "coordinate"
+      ],
+      "properties": {
+        "coordinate": {
+          "description": "热点坐标位置描述",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HotSpotCoordinates"
+          },
+          "x-go-name": "Coordinates"
+        },
+        "text": {
+          "description": "Text 类型文字说明",
+          "type": "string",
+          "x-go-name": "Text"
+        },
+        "type": {
+          "description": "热点类型, 可能值 \"embed\", \"link\", \"text\"",
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "url": {
+          "description": "Embed/Link 类型 URL",
+          "type": "string",
+          "x-go-name": "URL"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "Spin360Config": {
+      "description": "Spin360 player 配置",
+      "type": "object",
+      "required": [
+        "page",
+        "hotspot"
+      ],
+      "properties": {
+        "hotspot": {
+          "description": "热点配置数组",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PageHotSpot"
+          },
+          "x-go-name": "HotSpot"
+        },
+        "page": {
+          "description": "页面URL 数组",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SpinPage"
+          },
+          "x-go-name": "Pages"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "SpinPage": {
+      "type": "object",
+      "required": [
+        "img"
+      ],
+      "properties": {
+        "img": {
+          "description": "图片URL",
+          "type": "string",
+          "x-go-name": "ImageURL"
+        }
+      },
+      "x-go-package": "spin360"
+    }
+  },
+  "responses": {
+    "ServiceResult": {
+      "schema": {
+        "type": "object"
+      },
+      "headers": {
+        "data": {},
+        "error": {
+          "type": "string"
+        },
+        "status": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "listen": "${HOST}",
+  "web_root": "${ROOT}",
+  "temp": "${TEMP}",
+  "ffmpeg": {
+    "ffmpeg": "${FFMPEG_BIN}",
+    "ffprobe": "${FFPROBE_BIN}"
+  },
+  "s3": {
+    "access_key": "${S3_APPKEY}",
+    "secret_key": "${S3_SECRET}",
+    "bucket": "${S3_BUCKET}",
+    "region": "${S3_REGION}",
+    "prefix": "/spin360"
+  }
+}

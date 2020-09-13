@@ -1,0 +1,16 @@
+{
+  "listen": "127.0.0.1:3335",
+  "web_root": "F:/TestProject/golang/video-splitter/webroot",
+  "temp": "F:/TestProject/golang/video-splitter/temp",
+  "ffmpeg": {
+    "ffmpeg": "F:/grean/ffmpeg/bin/ffmpeg.exe",
+    "ffprobe": "F:/grean/ffmpeg/bin/ffprobe.exe"
+  },
+  "s3": {
+    "access_key": "",
+    "secret_key": "",
+    "bucket": "",
+    "region": "",
+    "prefix": "/video-spiltter"
+  }
+}
