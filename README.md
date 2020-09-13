@@ -70,13 +70,13 @@ docker pull mmhk/spin360
 ```
 - 环境变量，具体请参考 `config.json` 的说明。
   - HOST，service绑定的服务地址及端口，默认为 `127.0.0.1:3335`
-  - ROOT, swagger-ui 存放的本地目录，可以设置空来屏蔽 swagger-ui 的显示， 默认为 `/usr/local/mmhk/pgp-sftp-proxy/web_root`
-  - FFMPEG_BIN, SSH远程访问host
-  - FFPROBE_BIN, SSH远程登录账户
-  - S3_APPKEY, SSH远程登录密码
-  - S3_SECRET, SSH远程登录密匙，当sftp 使用密匙登录的时候使用，是一个本地文件路径。（注意是容器中的路径，应该使用 `-v`参数映射进容器）
-  - S3_BUCKET, sftp 远程开发目录文件夹, 默认值：`/Interface_Development_Files/`
-  - S3_REGION, sftp 远程产品目录文件夹, 默认值：`/Interface_Production_Files/`
+  - ROOT, swagger-ui 存放的本地目录，可以设置空来屏蔽 swagger-ui 的显示， 默认为 `/app/spin360/webroot`
+  - FFMPEG_BIN, ffmepg 执行路径
+  - FFPROBE_BIN, ffprobe 执行路径
+  - S3_APPKEY, S3 访问key
+  - S3_SECRET, S3 访问秘钥
+  - S3_BUCKET, S3 存储桶
+  - S3_REGION, S3 存储区域
 - 运行
 ```
 docker run --name spin360 -p 3335:3335 mmhk/spin360:latest
