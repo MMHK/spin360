@@ -4,7 +4,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,6 +25,7 @@ type UploadOptions struct {
 type IStorage interface {
 	Upload(localPath string, Key string) (string, string, error)
 	PutContent(content string, Key string, opt *UploadOptions) (string, string, error)
+	Get(Key string) (io.Reader, error)
 }
 
 func NewS3Storage(conf *S3Config) (IStorage, error) {
@@ -39,6 +42,24 @@ func NewS3Storage(conf *S3Config) (IStorage, error) {
 		Conf:    conf,
 		session: sess,
 	}, nil
+}
+
+func (this *S3Storage) Get(Key string) (io.Reader, error) {
+	path := filepath.ToSlash(filepath.Join(this.Conf.PrefixPath, Key))
+
+	svc := s3.New(this.session, aws.NewConfig())
+
+	out, err := svc.GetObject(&s3.GetObjectInput {
+		Bucket: aws.String(this.Conf.Bucket),
+		Key: aws.String(path),
+	})
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return out.Body, nil
 }
 
 func (this *S3Storage) GetFileContentType(localPath string) (string, error) {

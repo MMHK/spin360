@@ -55,6 +55,33 @@
         }
       }
     },
+    "/config/{hash}": {
+      "get": {
+        "description": "获取spin360 配置",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "getConfig",
+        "parameters": [
+          {
+            "description": "配置hash",
+            "name": "hash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/s3": {
       "post": {
         "description": "视频截图，返回task（任务）ID",
@@ -64,7 +91,7 @@
         "produces": [
           "application/json"
         ],
-        "operationId": "post",
+        "operationId": "uploadS3",
         "parameters": [
           {
             "type": "file",
@@ -100,7 +127,7 @@
         "produces": [
           "application/json"
         ],
-        "operationId": "post",
+        "operationId": "splitVideo",
         "parameters": [
           {
             "type": "file",

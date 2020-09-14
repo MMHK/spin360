@@ -70,7 +70,8 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/", this.RedirectSwagger)
 	r.HandleFunc("/split", this.Split)
-	r.HandleFunc("/config", this.SavePlayerConfig)
+	r.HandleFunc("/config", this.SavePlayerConfig).Methods("POST")
+	r.HandleFunc("/config/{hash}", this.GetConfig).Methods("GET")
 	r.HandleFunc("/s3", this.S3)
 	r.HandleFunc("/task", this.GetTask)
 	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/",
@@ -105,7 +106,7 @@ func GetMimeType(src *multipart.FileHeader) (string, string, error) {
 }
 
 //
-// swagger:operation POST /split post
+// swagger:operation POST /split splitVideo
 //
 // 分割Video 并下载截图zip包
 //
@@ -166,7 +167,7 @@ func (this *HTTPService) Split(writer http.ResponseWriter, request *http.Request
 }
 
 //
-// swagger:operation POST /s3 post
+// swagger:operation POST /s3 uploadS3
 //
 // 视频截图，返回task（任务）ID
 //
@@ -294,6 +295,47 @@ func (this *HTTPService) SavePlayerConfig(writer http.ResponseWriter, request *h
 		Status: true,
 		Data:   url,
 	}, writer)
+}
+
+
+//
+// swagger:operation GET /config/{hash} getConfig
+//
+// 获取spin360 配置
+//
+// ---
+// consumes:
+//   - application/json
+// produces:
+//   - application/json
+// parameters:
+// - name: hash
+//   in: path
+//   description: 配置hash
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) GetConfig(writer http.ResponseWriter, request *http.Request) {
+	params := mux.Vars(request)
+	hash, ok := params["hash"]
+	if !ok {
+		this.ResponseError(errors.New("missing hash param"), writer, 500)
+		return
+	}
+
+	worker := NewWorker(this.config)
+
+	conf, err := worker.GetConfig(hash)
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	this.ResponseJSON(conf, writer)
 }
 
 // swagger:operation GET /task task

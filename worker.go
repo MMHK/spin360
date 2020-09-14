@@ -232,6 +232,31 @@ func (this *Worker) UpdatePlayConfig(hash string, conf *Spin360Config) (string, 
 	return url, nil
 }
 
+func (this *Worker) GetConfig(hash string) (*Spin360Config, error) {
+	remoteKey := fmt.Sprintf("%s.json", hash)
+
+	s3, err := NewS3Storage(this.Conf.S3)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	reader, err := s3.Get(remoteKey)
+	if err != nil {
+		return nil, err
+	}
+
+	conf := new(Spin360Config)
+
+	decoder := json.NewDecoder(reader)
+	err = decoder.Decode(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return conf, nil
+}
+
 func (this *Worker) SavePlayConfig(conf *Spin360Config) (string, error) {
 	return this.UpdatePlayConfig(uuid.NewV4().String(), conf)
 }

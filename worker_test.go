@@ -99,3 +99,22 @@ func TestWorker_SavePlayConfig(t *testing.T) {
 
 	t.Log(url)
 }
+
+func TestWorker_GetConfig(t *testing.T) {
+	conf, err := loadConfig()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	worker := NewWorker(conf)
+
+	spin360Config, err := worker.GetConfig("225c2811-c13b-4e3b-81c5-3dbb53075bd2")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	t.Logf("%+v", spin360Config)
+}
