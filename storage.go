@@ -106,6 +106,9 @@ func (this *S3Storage) Upload(localPath string, Key string) (path string, url st
 		ACL:    aws.String("public-read"),
 		ContentType: aws.String(mimeType),
 	})
+	if err != nil {
+		return path, "", err
+	}
 
 	return path, info.Location, err
 }
