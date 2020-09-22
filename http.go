@@ -74,6 +74,8 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r.HandleFunc("/config/{hash}", this.GetConfig).Methods("GET")
 	r.HandleFunc("/s3", this.S3)
 	r.HandleFunc("/task", this.GetTask)
+	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/",
+		http.FileServer(http.Dir(fmt.Sprintf("%s/ui", this.config.WebRoot)))))
 	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/",
 		http.FileServer(http.Dir(fmt.Sprintf("%s/swagger", this.config.WebRoot)))))
 	r.NotFoundHandler = http.HandlerFunc(this.NotFoundHandle)
