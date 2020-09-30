@@ -57,7 +57,6 @@ type SpinPage struct {
 	ImageURL string `json:"img"`
 }
 
-
 // swagger:parameters configParams
 type Spin360Params struct {
 	//in: body
@@ -77,6 +76,50 @@ type Spin360Config struct {
 	//
 	// required: true
 	HotSpot []*PageHotSpot `json:"hotspot"`
+}
+
+type VRHotSpot struct {
+	//required: true
+	Id	string `json:"id"`
+	//
+	//
+	//required: true
+	Pitch int `json:"pitch"`
+	//
+	//
+	// required: true
+	Yaw int `json:"yaw"`
+	// 热点类型, 可能值 "embed", "link", "text"
+	//
+	// enum:
+	//	- embed
+	//	- link
+	//	- text
+	// required: true
+	Type string `json:"type"`
+	// Embed/Link 类型 URL
+	//
+	// required: true
+	URL string `json:"url"`
+	// Text 类型文字说明
+	//
+	// required: true
+	Text string `json:"text"`
+}
+
+//
+// VR360 player 配置
+//
+// swagger:model VR360Config
+type VR360Config struct {
+	// 页面URL 数组
+	//
+	// required: true
+	Source string `json:"src"`
+	// 热点配置数组
+	//
+	// required: true
+	HotSpots []*VRHotSpot `json:"hotspot"`
 }
 
 type FFMPEGConfig struct {
