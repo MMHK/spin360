@@ -261,6 +261,64 @@ func (this *Worker) SavePlayConfig(conf *Spin360Config) (string, error) {
 	return this.UpdatePlayConfig(uuid.NewV4().String(), conf)
 }
 
+func (this *Worker) VR360(ctx context.Context, src io.Reader) (io.Reader, error) {
+	var zipPath string
+
+	err := this.TempDir(func(tempDir string) error {
+		nona := NewNonaWrapper(``)
+
+		conf, err := nona.GenerateFromReader(tempDir, src)
+		if err != nil {
+			return err
+		}
+
+		configFile, err := os.Create(filepath.Join(tempDir, `config.json`))
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		defer configFile.Close()
+
+		encoder := json.NewEncoder(configFile)
+		err = encoder.Encode(conf)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		zipPath = tempDir + ".zip"
+		err = ZipFolder(tempDir, zipPath)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	zipFile, err := os.Open(zipPath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			zipFile.Close()
+			os.Remove(zipPath)
+			return
+		}
+	}()
+
+	return zipFile, nil
+}
+
 func ZipFolder(srcDirPath string, distFileName string) (err error) {
 
 	zipfile, e := os.Create(distFileName)

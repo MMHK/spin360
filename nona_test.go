@@ -1,22 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	_ "image/jpeg"
-	"math"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 )
 
 func GetNona() (*NonaWrapper, error) {
-	binPath, err := exec.LookPath("nona")
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
-
-	return NewNonaWrapper(binPath), nil
+	return NewNonaWrapper(getLocalPath("./tests/sample.jpeg")), nil
 }
 
 func TestNonaWrapper_GenerateCubicConfigFile(t *testing.T) {
@@ -28,14 +20,15 @@ func TestNonaWrapper_GenerateCubicConfigFile(t *testing.T) {
 	}
 
 	configFile := getLocalPath("./tests/cubic.pto")
-	err = Nona.GenerateCubicConfigFile(configFile, `sample.jpeg`, 2160,1080, 360)
+	cuteSize, err := Nona.GenerateCubicConfigFile(configFile)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-}
 
+	t.Log(cuteSize)
+}
 
 func TestNonaWrapper_CreateCuteFace(t *testing.T) {
 	Nona, err := GetNona()
@@ -45,23 +38,8 @@ func TestNonaWrapper_CreateCuteFace(t *testing.T) {
 		return
 	}
 
-	srcImgPath := filepath.ToSlash(getLocalPath("./tests/sample.jpeg"))
-	img, err := os.Open(srcImgPath)
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-		return
-	}
-	defer img.Close()
-
-	w, h, err := Nona.GetImgSize(img)
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-		return
-	}
 	configFile := getLocalPath("./tests/cubic.pto")
-	err = Nona.GenerateCubicConfigFile(configFile, srcImgPath, w, h, 360)
+	_, err = Nona.GenerateCubicConfigFile(configFile)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -84,7 +62,15 @@ func TestNonaWrapper_GeneratingTiles(t *testing.T) {
 		return
 	}
 
-	err = Nona.GeneratingTiles(2546, getLocalPath("./tests"))
+	configFile := getLocalPath("./tests/cubic.pto")
+	cubeSize, err := Nona.GenerateCubicConfigFile(configFile)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	err = Nona.GeneratingTiles(cubeSize, getLocalPath("./tests"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -116,22 +102,53 @@ func TestNonaWrapper_GenerateConfigJSON(t *testing.T) {
 		return
 	}
 
-	err = Nona.GenerateConfigJSON(2546, getLocalPath("./tests"))
+	configFile := getLocalPath("./tests/cubic.pto")
+	cubeSize, err := Nona.GenerateCubicConfigFile(configFile)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-}
 
-func Test_Sample(t *testing.T) {
-	cubeSize := 800
-	tileSize := 512
-
-	levels := int(math.Ceil(math.Log2(float64(cubeSize) / float64(tileSize)))) + 1
-	if int(math.Round(float64(cubeSize) / math.Pow(2, float64(levels - 2)))) == tileSize {
-		levels -= 1
+	config, err := Nona.GenerateConfigJSON(cubeSize)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
 	}
 
-	t.Log(levels)
+	t.Logf("%+v", config)
+}
+
+func TestNonaWrapper_Generate(t *testing.T) {
+	Nona, err := GetNona()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	conf, err := Nona.Generate(getLocalPath("./tests"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	configPath := getLocalPath("./tests/config.json")
+	configFile, err := os.Create(configPath)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	defer configFile.Close()
+
+	encoder := json.NewEncoder(configFile)
+	err = encoder.Encode(conf)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	_ "golang.org/x/image/tiff"
@@ -18,21 +17,53 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+var (
+	faces = []string{"face0000.tif", "face0001.tif", "face0002.tif", "face0003.tif", "face0004.tif", "face0005.tif"}
+	faceLetters = []string{"f", "b", "u", "d", "l", "r"}
+	extension = ".jpg"
+)
+
+const (
+	TYPE_PANNELLUM_HOTSPOT_EMBED = "embed"
+	TYPE_PANNELLUM_HOTSPOT_TEXT  = "text"
+	TYPE_PANNELLUM_HOTSPOT_LINK  = "link"
+)
+
 type NonaWrapper struct {
 	Bin    string
 	UseGPU bool
+	HaoV   int
+	SrcImgPath string
 }
 
-func NewNonaWrapper(binPath string) *NonaWrapper {
-	return &NonaWrapper{
-		Bin:    binPath,
+func NewNonaWrapper(ImagePath string) *NonaWrapper {
+	self := &NonaWrapper{
 		UseGPU: false,
+		HaoV: 360,
+		SrcImgPath: ImagePath,
 	}
+
+	return self.GetBinPath()
 }
 
-type FileNode struct {
-	Info     os.FileInfo
-	FullPath string
+func (this *NonaWrapper) SetBinPath(bin string) *NonaWrapper {
+	this.Bin = bin
+
+	return this
+}
+
+func (this *NonaWrapper) GetBinPath() *NonaWrapper {
+	if len(this.Bin) <= 0 {
+		binPath, err := exec.LookPath("nona")
+		if err != nil {
+			log.Error(err)
+			return this
+		}
+
+		this.Bin = binPath
+	}
+
+	return this
 }
 
 func (this *NonaWrapper) GetImgSize(reader io.Reader) (int, int, error) {
@@ -45,8 +76,18 @@ func (this *NonaWrapper) GetImgSize(reader io.Reader) (int, int, error) {
 }
 
 type PannellumConfig struct {
-	Type string            `json:"type"`
-	Config *MultiResConfig `json:"multiRes"`
+	Type    string              `json:"type"`
+	Config  *MultiResConfig     `json:"multiRes"`
+	HotSpot []*PannellumHotSpot `json:"hotSpots"`
+}
+
+type PannellumHotSpot struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Link  string `json:"link"`
+	Pitch int    `json:"pitch"`
+	Yaw   int    `json:"yaw"`
+	Id    string `json:"id"`
 }
 
 type MultiResConfig struct {
@@ -59,30 +100,54 @@ type MultiResConfig struct {
 	CubeResolution int `json:"cubeResolution"`
 }
 
-//func (this *NonaWrapper) Generate(imageFilePath string) ([]*FileNode, error)  {
-//	imgFile, err := os.Open(imageFilePath)
-//	if err != nil {
-//		log.Error(err)
-//		return nil, err
-//	}
-//	defer imgFile.Close()
-//
-//	width, height, err := this.GetImgSize(imgFile)
-//	if err != nil {
-//		log.Error(err)
-//		return nil, err
-//	}
-//
-//	haov := 360
-//	vaov := 180
-//
-//	if width / height != 2 {
-//		return nil, errors.New(`the image width is not twice the image height.`)
-//	}
-//
-//	cubeSize := math.Round(8 * float64(360 / haov) * (float64(width) / math.Pi) / 8)
-//
-//}
+func (this *NonaWrapper) Generate(distDir string) (*PannellumConfig, error) {
+	cuteConfig := filepath.Join(distDir, `cubic.pto`)
+	cubeSize, err := this.GenerateCubicConfigFile(cuteConfig)
+	if err != nil {
+		return nil, err
+	}
+	err = this.CreateCuteFace(distDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = this.GeneratingTiles(cubeSize, distDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = this.GenerateFallback(distDir)
+	if err != nil {
+		return nil, err
+	}
+
+	this.ClearCuteFaceFiles(distDir)
+
+	return this.GenerateConfigJSON(cubeSize)
+}
+
+func (this *NonaWrapper) GenerateFromReader(distDir string, reader io.Reader) (*PannellumConfig, error) {
+	sampleImagePath := filepath.ToSlash(filepath.Join(distDir, `sample.tmp`))
+	sampleImage, err := os.Create(sampleImagePath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	_, err = io.Copy(sampleImage, reader)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	sampleImage.Close()
+
+	this.SrcImgPath = sampleImagePath
+
+	defer func() {
+		os.Remove(sampleImagePath)
+	}()
+
+	return this.Generate(distDir)
+}
 
 func (this *NonaWrapper) CreateCuteFace(TempPath string) error {
 	log.Info(`Generating cube faces...`)
@@ -108,78 +173,100 @@ func (this *NonaWrapper) CreateCuteFace(TempPath string) error {
 	return err
 }
 
-func (this *NonaWrapper) GenerateCubicConfigFile(distFileName string, imgFileName string,
-	width int, height int, haov int) error {
+func (this *NonaWrapper) ClearCuteFaceFiles(TempDir string) {
+	log.Info(`Clearing face files...`)
+
+	files := append(faces, `cubic.pto`)
+	for _, file := range files {
+		fullPath := filepath.Join(TempDir, file)
+		err := os.Remove(fullPath)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+}
+
+func (this *NonaWrapper) GenerateCubicConfigFile(distFileName string) (int, error) {
 	log.Info(`Generating Cubic Config File...`)
 
-	cubeSize := int(8 * (float64(360/haov) * float64(width) / math.Pi / 8))
+	img, err := os.Open(this.SrcImgPath)
+	if err != nil {
+		log.Error(err)
+		return 0, err
+	}
+	defer img.Close()
+
+	width, height, err := this.GetImgSize(img)
+	if err != nil {
+		log.Error(err)
+		return 0, err
+	}
+
+	cubeSize := int(8 * (float64(360/this.HaoV) * float64(width) / math.Pi / 8))
 
 	pitch := 0
 	prefix := fmt.Sprintf(`i a0 b0 c0 d0 e0 f4 h%d w%d n"%s" r0 v%d`,
-		height, width, imgFileName, haov)
+		height, width, filepath.ToSlash(this.SrcImgPath), this.HaoV)
 
 	buff := bytes.NewBuffer([]byte{})
-	_, err := fmt.Fprintln(buff, fmt.Sprintf(`p E0 R0 f0 h%d w%d n"TIFF_m" u0 v90`, cubeSize, cubeSize))
+	_, err = fmt.Fprintln(buff, fmt.Sprintf(`p E0 R0 f0 h%d w%d n"TIFF_m" u0 v90`, cubeSize, cubeSize))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, `m g1 i0 m2 p0.00784314`)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y0`, prefix, pitch))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y180`, prefix, pitch))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y0`, prefix, pitch-90))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y0`, prefix, pitch+90))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y90`, prefix, pitch))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, fmt.Sprintf(`%s p%d y-90`, prefix, pitch))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, `v`)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = fmt.Fprintln(buff, `*`)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	conf, err := os.Create(distFileName)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer conf.Close()
 
 	_, err = io.Copy(conf, buff)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return cubeSize, nil
 }
 
 func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) error {
 	log.Info(`Generating tiles...`)
 
-	faces := []string{"face0000.tif", "face0001.tif", "face0002.tif", "face0003.tif", "face0004.tif", "face0005.tif"}
-	faceLetters := []string{"f", "b", "u", "d", "l", "r"}
-	extension := ".jpg"
 	tileSize := 512
 	if tileSize > cubeSize {
 		tileSize = cubeSize
@@ -236,10 +323,6 @@ func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) error {
 
 func (this *NonaWrapper) GenerateFallback(tempDir string) error {
 	log.Info(`Generating fallback...`)
-
-	faces := []string{"face0000.tif", "face0001.tif", "face0002.tif", "face0003.tif", "face0004.tif", "face0005.tif"}
-	faceLetters := []string{"f", "b", "u", "d", "l", "r"}
-	extension := ".jpg"
 	fallbackSize := 1024
 
 	fallbackDir := filepath.Join(tempDir, "fallback")
@@ -266,14 +349,8 @@ func (this *NonaWrapper) GenerateFallback(tempDir string) error {
 	return nil
 }
 
-func (this *NonaWrapper) GenerateConfigJSON(cubeSize int, tempDir string) error {
-	jsonPath := filepath.Join(tempDir, "config.json")
-	jsonFile, err := os.Create(jsonPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	defer jsonFile.Close()
+func (this *NonaWrapper) GenerateConfigJSON(cubeSize int) (*PannellumConfig, error) {
+	log.Info(`Generating config ...`)
 
 	conf := &PannellumConfig{
 		Type: "multires",
@@ -288,12 +365,5 @@ func (this *NonaWrapper) GenerateConfigJSON(cubeSize int, tempDir string) error 
 		},
 	}
 
-	encoder := json.NewEncoder(jsonFile)
-	err = encoder.Encode(conf)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	return nil
+	return conf, nil
 }
