@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -26,6 +27,7 @@ type IStorage interface {
 	Upload(localPath string, Key string) (string, string, error)
 	PutContent(content string, Key string, opt *UploadOptions) (string, string, error)
 	Get(Key string) (io.Reader, error)
+	URL(Key string) string
 }
 
 func NewS3Storage(conf *S3Config) (IStorage, error) {
@@ -132,4 +134,9 @@ func (this *S3Storage) PutContent(content string, Key string, opt *UploadOptions
 	})
 
 	return path, info.Location, err
+}
+
+func (this *S3Storage) URL(Key string) string {
+	key := strings.TrimLeft(filepath.ToSlash(filepath.Join(this.Conf.PrefixPath, Key)), "/")
+	return fmt.Sprintf("https://s3.%s.amazonaws.com/%s/%s", this.Conf.Region, this.Conf.Bucket, key)
 }

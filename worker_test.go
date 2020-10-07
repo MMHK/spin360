@@ -118,3 +118,60 @@ func TestWorker_GetConfig(t *testing.T) {
 
 	t.Logf("%+v", spin360Config)
 }
+
+func TestWorker_VR360(t *testing.T) {
+	conf, err := loadConfig()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	worker := NewWorker(conf)
+
+	img, err := os.Open(getLocalPath("./tests/sample.jpeg"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	defer img.Close()
+
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Minute * 30))
+
+	_, err = worker.VR360(ctx, img)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	//defer cancel()
+
+}
+
+func TestWorker_VR360ToS3(t *testing.T) {
+	conf, err := loadConfig()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	worker := NewWorker(conf)
+
+	img, err := os.Open(getLocalPath("./tests/sample.jpeg"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	defer img.Close()
+
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Minute * 30))
+
+	_, err = worker.VR360ToS3(ctx, img)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	//defer cancel()
+}

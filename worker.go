@@ -261,7 +261,92 @@ func (this *Worker) SavePlayConfig(conf *Spin360Config) (string, error) {
 	return this.UpdatePlayConfig(uuid.NewV4().String(), conf)
 }
 
-func (this *Worker) VR360(ctx context.Context, src io.Reader) (io.Reader, error) {
+func (this *Worker) VR360ToS3(ctx context.Context, src io.ReadSeeker) (string, error) {
+	configURL := ""
+
+	err := this.TempDir(func(tempDir string) error {
+		nona := NewNonaWrapper(``)
+
+		conf, err := nona.GenerateFromReader(tempDir, src)
+		if err != nil {
+			return err
+		}
+
+		s3, err := NewS3Storage(this.Conf.S3)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		queue := make(chan bool, 0)
+		maxTask := make(chan bool, 2)
+		defer close(queue)
+		defer close(maxTask)
+		jobCount := 0
+
+		err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			remoteBase := strings.Replace(filepath.ToSlash(path), filepath.ToSlash(tempDir), "", 1)
+			remotePath := filepath.ToSlash(filepath.Join(filepath.Base(tempDir), remoteBase))
+
+			jobCount++
+			go func(path string, remotePath string, s3 IStorage) {
+				maxTask <- true
+				defer func() {
+					<-maxTask
+					queue <- true
+				}()
+				log.Infof("%s => s3:%s", path, remotePath)
+
+				_, _, err := s3.Upload(path, remotePath)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+			}(path, remotePath, s3)
+
+			return nil
+		})
+
+		for jobCount > 0 {
+			<-queue
+			jobCount--
+		}
+
+		conf.URL = s3.URL(filepath.ToSlash(filepath.Join(filepath.Base(tempDir), conf.URL)))
+		conf.Config.BasePath = s3.URL(filepath.ToSlash(filepath.Join(filepath.Base(tempDir), conf.Config.BasePath)))
+		configKey := filepath.ToSlash(filepath.Join(filepath.Base(tempDir), `config.json`))
+
+		buff := new(bytes.Buffer)
+		encoder := json.NewEncoder(buff)
+		err = encoder.Encode(conf)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		_, _, err = s3.PutContent(buff.String(), configKey, &UploadOptions{
+			ContentType:"application/json",
+		})
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		configURL = s3.URL(configKey)
+
+		return nil
+	})
+
+	return configURL, err
+}
+
+func (this *Worker) VR360(ctx context.Context, src io.ReadSeeker) (io.Reader, error) {
 	var zipPath string
 
 	err := this.TempDir(func(tempDir string) error {

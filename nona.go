@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
 	_ "golang.org/x/image/tiff"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"math"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/disintegration/imaging"
 )
@@ -78,6 +81,7 @@ func (this *NonaWrapper) GetImgSize(reader io.Reader) (int, int, error) {
 type PannellumConfig struct {
 	Type    string              `json:"type"`
 	Config  *MultiResConfig     `json:"multiRes"`
+	URL     string              `json:"panorama"`
 	HotSpot []*PannellumHotSpot `json:"hotSpots"`
 }
 
@@ -101,6 +105,11 @@ type MultiResConfig struct {
 }
 
 func (this *NonaWrapper) Generate(distDir string) (*PannellumConfig, error) {
+	err := this.CopySrcToLocal(distDir)
+	if err != nil {
+		return nil, err
+	}
+
 	cuteConfig := filepath.Join(distDir, `cubic.pto`)
 	cubeSize, err := this.GenerateCubicConfigFile(cuteConfig)
 	if err != nil {
@@ -126,25 +135,83 @@ func (this *NonaWrapper) Generate(distDir string) (*PannellumConfig, error) {
 	return this.GenerateConfigJSON(cubeSize)
 }
 
-func (this *NonaWrapper) GenerateFromReader(distDir string, reader io.Reader) (*PannellumConfig, error) {
-	sampleImagePath := filepath.ToSlash(filepath.Join(distDir, `sample.tmp`))
-	sampleImage, err := os.Create(sampleImagePath)
+func (this *NonaWrapper) CopySrcToLocal(distDir string) error {
+	if strings.EqualFold(filepath.ToSlash(filepath.Dir(this.SrcImgPath)),
+		filepath.ToSlash(distDir)) {
+		return nil
+	}
+
+	log.Info(`copying image to local...`)
+	//copy image to distDir
+	localImgPath := filepath.Join(distDir, fmt.Sprintf(`%s%s`, uuid.NewV4(), filepath.Ext(this.SrcImgPath)))
+	localImg, err := os.Create(localImgPath)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return err
 	}
-	_, err = io.Copy(sampleImage, reader)
+	defer localImg.Close()
+
+	srcImg, err := os.Open(this.SrcImgPath)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return err
 	}
-	sampleImage.Close()
+	defer srcImg.Close()
 
-	this.SrcImgPath = sampleImagePath
+	_, err = io.Copy(localImg, srcImg)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
 
-	defer func() {
-		os.Remove(sampleImagePath)
-	}()
+	this.SrcImgPath = filepath.ToSlash(localImgPath)
+
+	return nil
+}
+
+func (this *NonaWrapper) CopyToLocalFromReader(distDir string, reader io.ReadSeeker) error {
+	log.Info(`copying image to local...`)
+	// Only the first 512 bytes are used to sniff the content type.
+	buff := make([]byte, 512)
+	_, err := reader.Read(buff)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	ext := ".tmp"
+	contentType := http.DetectContentType(buff)
+	if strings.Contains(contentType, `image/`) {
+		ext = fmt.Sprintf(".%s", strings.ReplaceAll(contentType, `image/`, ""))
+	}
+
+	//copy image to distDir
+	localImgPath := filepath.Join(distDir, fmt.Sprintf(`%s%s`, uuid.NewV4(), ext))
+	localImg, err := os.Create(localImgPath)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	defer localImg.Close()
+
+	_, err = reader.Seek(0, io.SeekStart)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	_, err = io.Copy(localImg, reader)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	this.SrcImgPath = filepath.ToSlash(localImgPath)
+
+	return nil
+}
+
+func (this *NonaWrapper) GenerateFromReader(distDir string, reader io.ReadSeeker) (*PannellumConfig, error) {
+	this.CopyToLocalFromReader(distDir, reader)
 
 	return this.Generate(distDir)
 }
@@ -354,6 +421,7 @@ func (this *NonaWrapper) GenerateConfigJSON(cubeSize int) (*PannellumConfig, err
 
 	conf := &PannellumConfig{
 		Type: "multires",
+		URL: filepath.Base(this.SrcImgPath),
 		Config: &MultiResConfig{
 			BasePath:       "",
 			Path:           "/%l/%s%y_%x",
