@@ -22,10 +22,8 @@ FROM bitnami/minideb:stretch
 # UTF-8 Environment
 ENV LC_ALL C.UTF-8
 
-RUN curl https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 --output /usr/local/bin/dumb-init \
- && chmod +x /usr/local/bin/dumb-init \
- && apt-get update \
- && apt-get install -y --no-install-recommends hugin gettext-base ffmpeg \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends  hugin gettext-base ffmpeg dumb-init \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
