@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine as builder
+FROM amd64/golang:1.14.9-stretch as builder
 
 # Add Maintainer Info
 LABEL maintainer="Sam Zhou <sam@mixmedia.com>"
@@ -14,10 +14,10 @@ RUN go version \
  && export GO111MODULE=on \
  && export GOPROXY=https://goproxy.io \
  && go mod vendor \
- && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o spin360
+ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o spin360
 
 ######## Start a new stage from scratch #######
-FROM phusion/baseimage:18.04-1.0.0-amd64
+FROM bitnami/minideb:stretch
 
 # UTF-8 Environment
 ENV LC_ALL C.UTF-8
