@@ -23,7 +23,7 @@ FROM bitnami/minideb:stretch
 ENV LC_ALL C.UTF-8
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends  hugin gettext-base ffmpeg dumb-init \
+ && apt-get install -y --no-install-recommends ca-certificates hugin gettext-base ffmpeg dumb-init \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
