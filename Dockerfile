@@ -17,15 +17,17 @@ RUN go version \
  && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o spin360
 
 ######## Start a new stage from scratch #######
-FROM alpine:latest  
+FROM phusion/baseimage:0.10.0
+
+# UTF-8 Environment
+ENV LC_ALL C.UTF-8
 
 RUN wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
  && chmod +x /usr/local/bin/dumb-init \
- && apk add --update libintl \
- && apk add ffmpeg \
- && apk add --virtual build_deps gettext  \
- && cp /usr/bin/envsubst /usr/local/bin/envsubst \
- && apk del build_deps
+ && apt-get update \
+ && apt-get install -y --no-install-recommends hugin gettext-base ffmpeg \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /app
 

@@ -11,6 +11,7 @@
     "secret_key": "${S3_SECRET}",
     "bucket": "${S3_BUCKET}",
     "region": "${S3_REGION}",
-    "prefix": "/spin360"
+    "prefix": "/spin360",
+    "vr360_prefix": "/vr360"
   }
 }
