@@ -70,8 +70,12 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/", this.RedirectSwagger)
 	r.HandleFunc("/split", this.Split)
+	r.HandleFunc("/vr360", this.VR360)
+	r.HandleFunc("/vr360/s3", this.VR360ToS3)
 	r.HandleFunc("/config", this.SavePlayerConfig).Methods("POST")
+	r.HandleFunc("/vr360/config", this.SaveVR360Config).Methods("POST")
 	r.HandleFunc("/config/{hash}", this.GetConfig).Methods("GET")
+	r.HandleFunc("/vr360/config/{hash}", this.GetVR360Config).Methods("GET")
 	r.HandleFunc("/s3", this.S3)
 	r.HandleFunc("/task", this.GetTask)
 	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/",
@@ -90,8 +94,7 @@ func (this *HTTPService) Start() error {
 }
 
 func (this *HTTPService) NotFoundHandle(writer http.ResponseWriter, request *http.Request) {
-	http.Error(writer, "handle not found!", 404)
-	this.ResponseError(errors.New("handle not found!"), writer, 404)
+	this.ResponseError(errors.New(`handle not found`), writer, http.StatusNotFound)
 }
 
 func (this *HTTPService) RedirectSwagger(writer http.ResponseWriter, request *http.Request) {
@@ -169,6 +172,53 @@ func (this *HTTPService) Split(writer http.ResponseWriter, request *http.Request
 }
 
 //
+// swagger:operation POST /vr360 vr360
+//
+// 上传全景图，下载打包分片资源
+//
+// ---
+// consumes:
+//   - multipart/form-data
+// produces:
+//   - application/json
+// parameters:
+// - name: image
+//   type: file
+//   in: formData
+//   required: true
+//   description: 图片文件
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) VR360(writer http.ResponseWriter, request *http.Request)  {
+	request.ParseMultipartForm(32 << 20)
+	uploadFile, _, err := request.FormFile("image")
+	if err != nil {
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
+		return
+	}
+	defer uploadFile.Close()
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Minute*30))
+	defer cancel()
+
+	worker := NewWorker(this.config)
+	reader, err := worker.VR360(ctx, uploadFile)
+	if err != nil {
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	this.streamFile(reader, time.Now().Format("20060102150405.zip"), writer)
+}
+
+//
 // swagger:operation POST /s3 uploadS3
 //
 // 视频截图，返回task（任务）ID
@@ -240,6 +290,63 @@ func (this *HTTPService) S3(writer http.ResponseWriter, request *http.Request) {
 }
 
 //
+// swagger:operation POST /vr360/s3 vr360ToS3
+//
+// 上传全景图，返回task（任务）ID， 将全景图分片资源打包上传到S3
+//
+// ---
+// consumes:
+//   - multipart/form-data
+// produces:
+//   - application/json
+// parameters:
+// - name: image
+//   type: file
+//   in: formData
+//   required: true
+//   description: 全景图文件
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) VR360ToS3(writer http.ResponseWriter, request *http.Request) {
+	request.ParseMultipartForm(32 << 20)
+	uploadFile, _, err := request.FormFile("image")
+	if err != nil {
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	task := this.createTask()
+
+	go func() {
+		defer uploadFile.Close()
+
+		task.Status = STATUS_TASK_RUNNING
+		this.UpdateTaskStatus(task.ID, task)
+
+		worker := NewWorker(this.config)
+		url, err := worker.VR360ToS3(uploadFile)
+		if err != nil {
+			log.Error(err)
+			task.Status = STATUS_TASK_FAILED
+			this.UpdateTaskStatus(task.ID, task)
+			return
+		}
+
+		task.Status = STATUS_TASK_DONE
+		task.Result = url
+		this.UpdateTaskStatus(task.ID, task)
+	}()
+
+	this.ResponseJSON(&task, writer)
+}
+
+//
 // swagger:operation POST /config configParams
 //
 // 保存播放器配置，返回配置文件的URL
@@ -299,6 +406,62 @@ func (this *HTTPService) SavePlayerConfig(writer http.ResponseWriter, request *h
 	}, writer)
 }
 
+//
+// swagger:operation POST /vr360/config/{hash} vr360Params
+//
+// 保存VR360播放器配置，返回配置文件的URL
+//
+// ---
+// consumes:
+//   - application/json
+//   - multipart/form-data
+// produces:
+//   - application/json
+// parameters:
+// - name: Body
+//   in: body
+//   description: 配置
+// - name: hash
+//   type: string
+//   in: path
+//   description: 配置hash, 如提供即更新已有配置
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) SaveVR360Config(writer http.ResponseWriter, request *http.Request) {
+	decoder := json.NewDecoder(request.Body)
+	config := new(PannellumConfig)
+	err := decoder.Decode(config)
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	hashArgs := make([]string, 0)
+	params := mux.Vars(request)
+	hash, ok := params["hash"]
+	if ok {
+		hashArgs = append(hashArgs, hash)
+	}
+
+	url := ""
+	worker := NewWorker(this.config)
+	url, err = worker.SaveVR360Config(config, hashArgs...)
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	this.ResponseJSON(&ServiceResult{
+		Status: true,
+		Data:   url,
+	}, writer)
+}
+
 
 //
 // swagger:operation GET /config/{hash} getConfig
@@ -332,6 +495,46 @@ func (this *HTTPService) GetConfig(writer http.ResponseWriter, request *http.Req
 	worker := NewWorker(this.config)
 
 	conf, err := worker.GetConfig(hash)
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	this.ResponseJSON(conf, writer)
+}
+
+//
+// swagger:operation GET /vr360/config/{hash} getConfig
+//
+// 获取VR360 配置
+//
+// ---
+// consumes:
+//   - application/json
+// produces:
+//   - application/json
+// parameters:
+// - name: hash
+//   in: path
+//   description: 配置hash
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) GetVR360Config(writer http.ResponseWriter, request *http.Request) {
+	params := mux.Vars(request)
+	hash, ok := params["hash"]
+	if !ok {
+		this.ResponseError(errors.New("missing hash param"), writer, 500)
+		return
+	}
+
+	worker := NewWorker(this.config)
+
+	conf, err := worker.GetVR360Config(hash)
 	if err != nil {
 		this.ResponseError(err, writer, 500)
 		return
@@ -419,11 +622,12 @@ func (this *HTTPService) streamFile(out io.Reader, filename string, writer http.
 }
 
 func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, StatusCode int) {
-	server_error := &ServiceResult{Error: err.Error(), Status: false}
-	json_str, _ := json.Marshal(server_error)
+	serverError := &ServiceResult{Error: err.Error(), Status: false}
+	writer.WriteHeader(StatusCode)
 	writer.Header().Add("Content-Type", "application/json")
 
-	http.Error(writer, string(json_str), StatusCode)
+	encoder := json.NewEncoder(writer)
+	encoder.Encode(serverError)
 }
 
 func (this *HTTPService) ResponseJSON(src interface{}, writer http.ResponseWriter) {

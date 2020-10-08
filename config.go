@@ -6,11 +6,11 @@ import (
 	"os"
 )
 
-const HOTSPOT_TYPE_EMBED = "embed";
+const HOTSPOT_TYPE_EMBED = "embed"
 
-const HOTSPOT_TYPE_LINK = "link";
+const HOTSPOT_TYPE_LINK = "link"
 
-const HOTSPOT_TYPE_TEXT = "text";
+const HOTSPOT_TYPE_TEXT = "text"
 
 type HotSpotCoordinates struct {
 	// 所在图片索引
@@ -80,7 +80,7 @@ type Spin360Config struct {
 
 type VRHotSpot struct {
 	//required: true
-	Id	string `json:"id"`
+	Id string `json:"id"`
 	//
 	//
 	//required: true
@@ -128,11 +128,12 @@ type FFMPEGConfig struct {
 }
 
 type S3Config struct {
-	AccessKey  string `json:"access_key"`
-	SecretKey  string `json:"secret_key"`
-	Bucket     string `json:"bucket"`
-	Region     string `json:"region"`
-	PrefixPath string `json:"prefix"`
+	AccessKey   string `json:"access_key"`
+	SecretKey   string `json:"secret_key"`
+	Bucket      string `json:"bucket"`
+	Region      string `json:"region"`
+	PrefixPath  string `json:"prefix"`
+	VR360Prefix string `json:"vr360_prefix"`
 }
 
 type Config struct {

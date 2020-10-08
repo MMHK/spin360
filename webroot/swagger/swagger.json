@@ -182,6 +182,126 @@
           }
         }
       }
+    },
+    "/vr360": {
+      "post": {
+        "description": "上传全景图，下载打包分片资源",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "vr360",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "图片文件",
+            "name": "image",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/vr360/config/{hash}": {
+      "get": {
+        "description": "获取VR360 配置",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "getConfig",
+        "parameters": [
+          {
+            "description": "配置hash",
+            "name": "hash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      },
+      "post": {
+        "description": "保存VR360播放器配置，返回配置文件的URL",
+        "consumes": [
+          "application/json",
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "vr360Params",
+        "parameters": [
+          {
+            "description": "配置",
+            "name": "Body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/PannellumConfig"
+            }
+          },
+          {
+            "type": "string",
+            "description": "配置hash, 如提供即更新已有配置",
+            "name": "hash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/vr360/s3": {
+      "post": {
+        "description": "上传全景图，返回task（任务）ID， 将全景图分片资源打包上传到S3",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "vr360ToS3",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "全景图文件",
+            "name": "image",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -208,6 +328,43 @@
           "description": "Y 坐标位置",
           "type": "string",
           "x-go-name": "Y"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "MultiResConfig": {
+      "type": "object",
+      "properties": {
+        "basePath": {
+          "type": "string",
+          "x-go-name": "BasePath"
+        },
+        "cubeResolution": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CubeResolution"
+        },
+        "extension": {
+          "type": "string",
+          "x-go-name": "Extension"
+        },
+        "fallbackPath": {
+          "type": "string",
+          "x-go-name": "FallbackPath"
+        },
+        "maxLevel": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxLevel"
+        },
+        "path": {
+          "type": "string",
+          "x-go-name": "Path"
+        },
+        "tileResolution": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "TileResolution"
         }
       },
       "x-go-package": "spin360"
@@ -243,6 +400,82 @@
           "description": "Embed/Link 类型 URL",
           "type": "string",
           "x-go-name": "URL"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "PannellumConfig": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "hotSpots": {
+          "description": "热点配置",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PannellumHotSpot"
+          },
+          "x-go-name": "HotSpot"
+        },
+        "multiRes": {
+          "$ref": "#/definitions/MultiResConfig"
+        },
+        "panorama": {
+          "description": "未分割全景图URL",
+          "type": "string",
+          "x-go-name": "URL"
+        },
+        "type": {
+          "description": "全景图数据源类型",
+          "type": "string",
+          "x-go-name": "Type"
+        }
+      },
+      "x-go-package": "spin360"
+    },
+    "PannellumHotSpot": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "link",
+        "pitch",
+        "yaw",
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "description": "热点ID",
+          "type": "string",
+          "x-go-name": "Id"
+        },
+        "link": {
+          "description": "Embed/Link 类型 URL",
+          "type": "string",
+          "x-go-name": "Link"
+        },
+        "pitch": {
+          "description": "热点三维坐标",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Pitch"
+        },
+        "text": {
+          "description": "Text 类型文字说明",
+          "type": "string",
+          "x-go-name": "Text"
+        },
+        "type": {
+          "description": "热点类型, 可能值 \"embed\", \"link\", \"text\"",
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "yaw": {
+          "description": "热点三维坐标",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Yaw"
         }
       },
       "x-go-package": "spin360"

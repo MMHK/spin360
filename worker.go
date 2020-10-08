@@ -257,11 +257,78 @@ func (this *Worker) GetConfig(hash string) (*Spin360Config, error) {
 	return conf, nil
 }
 
+func (this *Worker) GetVR360Config(hash string) (*PannellumConfig, error) {
+	remoteKey := fmt.Sprintf("%s.json", hash)
+
+	s3, err := NewS3Storage(this.GetVR360S3Config())
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	reader, err := s3.Get(remoteKey)
+	if err != nil {
+		return nil, err
+	}
+
+	conf := new(PannellumConfig)
+
+	decoder := json.NewDecoder(reader)
+	err = decoder.Decode(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return conf, nil
+}
+
+func (this *Worker) SaveVR360Config(conf *PannellumConfig, hashArgs ...string) (string, error) {
+	hash := fmt.Sprintf("%s", uuid.NewV4())
+	if len(hashArgs) > 0 {
+		hash = hashArgs[0]
+	}
+	remoteKey := fmt.Sprintf("%s.json", hash)
+
+	s3, err := NewS3Storage(this.GetVR360S3Config())
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	encoder := json.NewEncoder(buf)
+	err = encoder.Encode(conf)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	_, url, err := s3.PutContent(buf.String(), remoteKey, &UploadOptions{
+		ContentType: "application/json",
+	})
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	return url, nil
+}
+
+func (this *Worker) GetVR360S3Config() *S3Config {
+	return &S3Config{
+		AccessKey: this.Conf.S3.AccessKey,
+		SecretKey: this.Conf.S3.SecretKey,
+		Bucket: this.Conf.S3.Bucket,
+		Region: this.Conf.S3.Region,
+		PrefixPath: this.Conf.S3.VR360Prefix,
+	}
+}
+
 func (this *Worker) SavePlayConfig(conf *Spin360Config) (string, error) {
 	return this.UpdatePlayConfig(uuid.NewV4().String(), conf)
 }
 
-func (this *Worker) VR360ToS3(ctx context.Context, src io.ReadSeeker) (string, error) {
+func (this *Worker) VR360ToS3(src io.ReadSeeker) (string, error) {
 	configURL := ""
 
 	err := this.TempDir(func(tempDir string) error {
@@ -272,7 +339,8 @@ func (this *Worker) VR360ToS3(ctx context.Context, src io.ReadSeeker) (string, e
 			return err
 		}
 
-		s3, err := NewS3Storage(this.Conf.S3)
+		s3Config := this.GetVR360S3Config()
+		s3, err := NewS3Storage(s3Config)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -318,9 +386,10 @@ func (this *Worker) VR360ToS3(ctx context.Context, src io.ReadSeeker) (string, e
 			jobCount--
 		}
 
-		conf.URL = s3.URL(filepath.ToSlash(filepath.Join(filepath.Base(tempDir), conf.URL)))
-		conf.Config.BasePath = s3.URL(filepath.ToSlash(filepath.Join(filepath.Base(tempDir), conf.Config.BasePath)))
-		configKey := filepath.ToSlash(filepath.Join(filepath.Base(tempDir), `config.json`))
+		hash := filepath.Base(tempDir)
+		conf.URL = s3.URL(filepath.ToSlash(filepath.Join(hash, conf.URL)))
+		conf.Config.BasePath = s3.URL(filepath.ToSlash(filepath.Join(hash, conf.Config.BasePath)))
+		configKey := fmt.Sprintf(`%s.json`, hash)
 
 		buff := new(bytes.Buffer)
 		encoder := json.NewEncoder(buff)

@@ -78,19 +78,54 @@ func (this *NonaWrapper) GetImgSize(reader io.Reader) (int, int, error) {
 	return im.Width, im.Height, nil
 }
 
+// swagger:parameters vr360Params
+type VR360Params struct {
+	//in: body
+	Body *PannellumConfig
+}
+
 type PannellumConfig struct {
+	// 全景图数据源类型
+	//
+	// required: true
 	Type    string              `json:"type"`
+	// 全局图分片模式参数
 	Config  *MultiResConfig     `json:"multiRes"`
+	// 未分割全景图URL
 	URL     string              `json:"panorama"`
+	// 热点配置
+	//
 	HotSpot []*PannellumHotSpot `json:"hotSpots"`
 }
 
 type PannellumHotSpot struct {
+	// 热点类型, 可能值 "embed", "link", "text"
+	//
+	// enum:
+	//	- embed
+	//	- link
+	//	- text
+	// required: true
 	Type  string `json:"type"`
+	// Text 类型文字说明
+	//
+	// required: true
 	Text  string `json:"text"`
+	// Embed/Link 类型 URL
+	//
+	// required: true
 	Link  string `json:"link"`
+	// 热点三维坐标
+	//
+	// required: true
 	Pitch int    `json:"pitch"`
+	// 热点三维坐标
+	//
+	// required: true
 	Yaw   int    `json:"yaw"`
+	// 热点ID
+	//
+	// required: true
 	Id    string `json:"id"`
 }
 
@@ -119,8 +154,8 @@ func (this *NonaWrapper) Generate(distDir string) (*PannellumConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	err = this.GeneratingTiles(cubeSize, distDir)
+	
+	tileSize, levels, err := this.GeneratingTiles(cubeSize, distDir)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +167,7 @@ func (this *NonaWrapper) Generate(distDir string) (*PannellumConfig, error) {
 
 	this.ClearCuteFaceFiles(distDir)
 
-	return this.GenerateConfigJSON(cubeSize)
+	return this.GenerateConfigJSON(cubeSize, levels, tileSize)
 }
 
 func (this *NonaWrapper) CopySrcToLocal(distDir string) error {
@@ -331,7 +366,7 @@ func (this *NonaWrapper) GenerateCubicConfigFile(distFileName string) (int, erro
 	return cubeSize, nil
 }
 
-func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) error {
+func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) (int, int, error) {
 	log.Info(`Generating tiles...`)
 
 	tileSize := 512
@@ -351,7 +386,7 @@ func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) error {
 			img, err := imaging.Open(facePath)
 			if err != nil {
 				log.Error(err)
-				return err
+				return tileSize, levels, err
 			}
 
 			for level := levels; level > 0; level-- {
@@ -372,20 +407,24 @@ func (this *NonaWrapper) GeneratingTiles(cubeSize int, tempDir string) error {
 						if _, err := os.Stat(tileDir); err != nil && os.IsNotExist(err) {
 							os.MkdirAll(tileDir, os.ModePerm)
 						}
-						err := imaging.Save(tile, tilePath, imaging.JPEGQuality(95))
-						if err != nil {
-							log.Error(err)
-							return err
+						if !tile.Bounds().Empty() {
+							err := imaging.Save(tile, tilePath, imaging.JPEGQuality(95))
+							if err != nil {
+								log.Error(err)
+								return tileSize, levels, err
+							}
 						}
 					}
 				}
+				
+				size = int(size / 2)
  			}
 
-			size = int(size / 2)
+			
 		}
 	}
 
-	return nil
+	return tileSize, levels, nil
 }
 
 func (this *NonaWrapper) GenerateFallback(tempDir string) error {
@@ -416,7 +455,7 @@ func (this *NonaWrapper) GenerateFallback(tempDir string) error {
 	return nil
 }
 
-func (this *NonaWrapper) GenerateConfigJSON(cubeSize int) (*PannellumConfig, error) {
+func (this *NonaWrapper) GenerateConfigJSON(cubeSize int, levels int, tileSize int) (*PannellumConfig, error) {
 	log.Info(`Generating config ...`)
 
 	conf := &PannellumConfig{
@@ -427,8 +466,8 @@ func (this *NonaWrapper) GenerateConfigJSON(cubeSize int) (*PannellumConfig, err
 			Path:           "/%l/%s%y_%x",
 			FallbackPath:   "/fallback/%s",
 			Extension:      "jpg",
-			TileResolution: 512,
-			MaxLevel:       4,
+			TileResolution: tileSize,
+			MaxLevel:       levels,
 			CubeResolution: cubeSize,
 		},
 	}

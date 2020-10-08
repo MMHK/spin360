@@ -8,7 +8,7 @@ import (
 )
 
 func GetNona() (*NonaWrapper, error) {
-	return NewNonaWrapper(getLocalPath("./tests/sample.jpeg")), nil
+	return NewNonaWrapper(getLocalPath("./tests/sample.jpg")), nil
 }
 
 func TestNonaWrapper_GenerateCubicConfigFile(t *testing.T) {
@@ -69,8 +69,15 @@ func TestNonaWrapper_GeneratingTiles(t *testing.T) {
 		t.Fail()
 		return
 	}
+	
+	err = Nona.CreateCuteFace(getLocalPath("./tests/"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
 
-	err = Nona.GeneratingTiles(cubeSize, getLocalPath("./tests"))
+	_,_,err = Nona.GeneratingTiles(cubeSize, getLocalPath("./tests"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -110,7 +117,7 @@ func TestNonaWrapper_GenerateConfigJSON(t *testing.T) {
 		return
 	}
 
-	config, err := Nona.GenerateConfigJSON(cubeSize)
+	config, err := Nona.GenerateConfigJSON(cubeSize, 4, 512)
 	if err != nil {
 		t.Error(err)
 		t.Fail()

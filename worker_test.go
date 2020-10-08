@@ -157,7 +157,7 @@ func TestWorker_VR360ToS3(t *testing.T) {
 	}
 	worker := NewWorker(conf)
 
-	img, err := os.Open(getLocalPath("./tests/sample.jpeg"))
+	img, err := os.Open(getLocalPath("./tests/sample.jpg"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -165,13 +165,12 @@ func TestWorker_VR360ToS3(t *testing.T) {
 	}
 	defer img.Close()
 
-	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Minute * 30))
-
-	_, err = worker.VR360ToS3(ctx, img)
+	url, err := worker.VR360ToS3(img)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-	//defer cancel()
+	
+	t.Log(url)
 }
