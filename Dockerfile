@@ -17,7 +17,7 @@ RUN go version \
  && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o spin360
 
 ######## Start a new stage from scratch #######
-FROM phusion/baseimage:0.10.0
+FROM phusion/baseimage:18.04-1.0.0-amd64
 
 # UTF-8 Environment
 ENV LC_ALL C.UTF-8
