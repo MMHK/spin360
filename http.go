@@ -16,7 +16,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -78,6 +77,8 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r.HandleFunc("/vr360/config/{hash}", this.GetVR360Config).Methods("GET")
 	r.HandleFunc("/vr360/config/{hash}", this.SaveVR360Config).Methods("POST")
 	r.HandleFunc("/s3", this.S3)
+	r.HandleFunc("/s3/url", this.S3FromURL).Methods("POST")
+	r.HandleFunc("/oss/params", this.GetOSSUploadParams).Methods("GET")
 	r.HandleFunc("/task", this.GetTask)
 	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/",
 		http.FileServer(http.Dir(fmt.Sprintf("%s/ui", this.config.WebRoot)))))
@@ -291,6 +292,68 @@ func (this *HTTPService) S3(writer http.ResponseWriter, request *http.Request) {
 }
 
 //
+// swagger:operation POST /s3/url uploadS3FromURL
+//
+// 从URL视频截图，返回task（任务）ID
+//
+// ---
+// consumes:
+//   - multipart/form-data
+// produces:
+//   - application/json
+// parameters:
+// - name: video
+//   type: string
+//   in: formData
+//   required: true
+//   description: 视频文件URL
+// - name: splitSize
+//   type: integer
+//   in: formData
+//   required: true
+//   description: 截图总数
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) S3FromURL(writer http.ResponseWriter, request *http.Request) {
+	URL := request.FormValue("video")
+	size := request.FormValue("splitSize")
+
+	splitSize, err := strconv.Atoi(size)
+	if err != nil {
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	task := this.createTask()
+
+	go func() {
+		task.Status = STATUS_TASK_RUNNING
+		this.UpdateTaskStatus(task.ID, task)
+
+		worker := NewWorker(this.config)
+		list, err := worker.S3FromURL(URL, splitSize)
+		if err != nil {
+			log.Error(err)
+			task.Status = STATUS_TASK_FAILED
+			this.UpdateTaskStatus(task.ID, task)
+			return
+		}
+
+		task.Status = STATUS_TASK_DONE
+		task.Result = list
+		this.UpdateTaskStatus(task.ID, task)
+	}()
+
+	this.ResponseJSON(&task, writer)
+}
+
+//
 // swagger:operation POST /vr360/s3 vr360ToS3
 //
 // 上传全景图，返回task（任务）ID， 将全景图分片资源打包上传到S3
@@ -401,10 +464,7 @@ func (this *HTTPService) SavePlayerConfig(writer http.ResponseWriter, request *h
 		return
 	}
 
-	this.ResponseJSON(&ServiceResult{
-		Status: true,
-		Data:   url,
-	}, writer)
+	this.ResponseJSON(url, writer)
 }
 
 //
@@ -457,10 +517,7 @@ func (this *HTTPService) SaveVR360Config(writer http.ResponseWriter, request *ht
 		return
 	}
 
-	this.ResponseJSON(&ServiceResult{
-		Status: true,
-		Data:   url,
-	}, writer)
+	this.ResponseJSON(url, writer)
 }
 
 
@@ -542,6 +599,46 @@ func (this *HTTPService) GetVR360Config(writer http.ResponseWriter, request *htt
 	}
 
 	this.ResponseJSON(conf, writer)
+}
+
+//
+// swagger:operation GET /oss/params OSSUploadParams
+//
+// 获取 OSS web直传参数
+//
+// ---
+// consumes:
+//   - application/json
+// produces:
+//   - application/json
+// parameters:
+// - name: filename
+//   in: query
+//   required: true
+//   description: 待上传文件名
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+//
+//
+func (this *HTTPService) GetOSSUploadParams(writer http.ResponseWriter, request *http.Request) {
+	filename := request.FormValue("filename")
+
+	oss, err := NewOSSStorage(this.config.OSS)
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	result, err := oss.GenerateFormMultipart(filename, 1*time.Hour, "")
+	if err != nil {
+		this.ResponseError(err, writer, 500)
+		return
+	}
+
+	this.ResponseJSON(result, writer)
 }
 
 // swagger:operation GET /task task
@@ -633,10 +730,8 @@ func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, St
 
 func (this *HTTPService) ResponseJSON(src interface{}, writer http.ResponseWriter) {
 	serverResult := &ServiceResult{Data: src, Status: true}
-	bin, _ := json.Marshal(serverResult)
-	reader := bytes.NewReader(bin)
-
 	writer.Header().Add("Content-Type", "application/json")
 
-	io.Copy(writer, reader)
+	encoder := json.NewEncoder(writer)
+	encoder.Encode(serverResult)
 }

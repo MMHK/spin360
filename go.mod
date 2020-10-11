@@ -3,6 +3,7 @@ module spin360
 go 1.13
 
 require (
+	github.com/aliyun/aliyun-oss-go-sdk v2.1.4+incompatible
 	github.com/aws/aws-sdk-go v1.35.4
 	github.com/disintegration/imaging v1.6.2
 	github.com/gorilla/mux v1.8.0
@@ -10,4 +11,5 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.5.1 // indirect
 	golang.org/x/image v0.0.0-20200927104501-e162460cd6b5
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 )

@@ -13,5 +13,12 @@
     "region": "${S3_REGION}",
     "prefix": "/spin360",
     "vr360_prefix": "/vr360"
+  },
+  "aliyun-oss": {
+    "access_key": "${OSS_APPKEY}",
+    "secret_key": "${OSS_SECRET}",
+    "bucket": "${OSS_BUCKET}",
+    "endpoint": "${OSS_ENDPOINT}",
+    "prefix": "spin360"
   }
 }

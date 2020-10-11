@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"github.com/satori/go.uuid"
+	"time"
 )
 
 type Worker struct {
@@ -326,6 +328,31 @@ func (this *Worker) GetVR360S3Config() *S3Config {
 
 func (this *Worker) SavePlayConfig(conf *Spin360Config) (string, error) {
 	return this.UpdatePlayConfig(uuid.NewV4().String(), conf)
+}
+
+func  (this *Worker) S3FromURL(URL string, size int) ([]string, error)  {
+	log.Info(`download file from `, URL)
+
+	reader, err := this.DownloadRemoteFile(URL)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	return this.S3(reader, size)
+}
+
+func (this *Worker) DownloadRemoteFile(URL string) (io.ReadCloser, error) {
+	httpClient := http.Client{
+		Timeout: time.Minute * 30,
+	}
+	resp, err := httpClient.Get(URL)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return resp.Body, nil
 }
 
 func (this *Worker) VR360ToS3(src io.ReadSeeker) (string, error) {

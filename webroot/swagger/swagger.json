@@ -82,6 +82,34 @@
         }
       }
     },
+    "/oss/params": {
+      "get": {
+        "description": "获取 OSS web直传参数",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "OSSUploadParams",
+        "parameters": [
+          {
+            "description": "待上传文件名",
+            "name": "filename",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/s3": {
       "post": {
         "description": "视频截图，返回task（任务）ID",
@@ -96,6 +124,42 @@
           {
             "type": "file",
             "description": "视频文件",
+            "name": "video",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "截图总数",
+            "name": "splitSize",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/s3/url": {
+      "post": {
+        "description": "从URL视频截图，返回task（任务）ID",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "uploadS3FromURL",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "视频文件URL",
             "name": "video",
             "in": "formData",
             "required": true
@@ -457,8 +521,8 @@
         },
         "pitch": {
           "description": "热点三维坐标",
-          "type": "integer",
-          "format": "int64",
+          "type": "number",
+          "format": "double",
           "x-go-name": "Pitch"
         },
         "text": {
@@ -473,8 +537,8 @@
         },
         "yaw": {
           "description": "热点三维坐标",
-          "type": "integer",
-          "format": "int64",
+          "type": "number",
+          "format": "double",
           "x-go-name": "Yaw"
         }
       },

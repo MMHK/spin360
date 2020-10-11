@@ -57,13 +57,17 @@ func (this *NonaWrapper) SetBinPath(bin string) *NonaWrapper {
 
 func (this *NonaWrapper) GetBinPath() *NonaWrapper {
 	if len(this.Bin) <= 0 {
-		binPath, err := exec.LookPath("nona")
-		if err != nil {
-			log.Error(err)
+		binPath, ok := os.LookupEnv("NONA_BIN")
+		if ok {
+			this.Bin = binPath
 			return this
 		}
 
-		this.Bin = binPath
+		binPath, err := exec.LookPath("nona")
+		if err == nil {
+			this.Bin = binPath
+			return this
+		}
 	}
 
 	return this

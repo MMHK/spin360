@@ -140,6 +140,7 @@ type Config struct {
 	Listen     string        `json:"listen"`
 	FFMpegConf *FFMPEGConfig `json:"ffmpeg"`
 	S3         *S3Config     `json:"s3"`
+	OSS        *OSSConfig    `json:"aliyun-oss"`
 	WebRoot    string        `json:"web_root"`
 	TempPath   string        `json:"temp"`
 	sava_file  string
