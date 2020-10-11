@@ -76,6 +76,7 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r.HandleFunc("/vr360/config", this.SaveVR360Config).Methods("POST")
 	r.HandleFunc("/config/{hash}", this.GetConfig).Methods("GET")
 	r.HandleFunc("/vr360/config/{hash}", this.GetVR360Config).Methods("GET")
+	r.HandleFunc("/vr360/config/{hash}", this.SaveVR360Config).Methods("POST")
 	r.HandleFunc("/s3", this.S3)
 	r.HandleFunc("/task", this.GetTask)
 	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/",

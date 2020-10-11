@@ -118,11 +118,11 @@ type PannellumHotSpot struct {
 	// 热点三维坐标
 	//
 	// required: true
-	Pitch int    `json:"pitch"`
+	Pitch float64    `json:"pitch"`
 	// 热点三维坐标
 	//
 	// required: true
-	Yaw   int    `json:"yaw"`
+	Yaw   float64    `json:"yaw"`
 	// 热点ID
 	//
 	// required: true
