@@ -2,6 +2,7 @@
   "listen": "${HOST}",
   "web_root": "${ROOT}",
   "temp": "${TEMP}",
+  "max-video-height": ${MAX_VIDEO_HEIGHT},
   "ffmpeg": {
     "ffmpeg": "${FFMPEG_BIN}",
     "ffprobe": "${FFPROBE_BIN}"

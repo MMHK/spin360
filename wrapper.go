@@ -97,8 +97,39 @@ type FFprobe struct {
 	bin string
 }
 
+type StreamInfo struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+func (this *StreamInfo) GetResolution() (int, int) {
+	return this.Width, this.Height
+}
+
 type CommandResult struct {
 	Format *MediaInfo `json:"format"`
+	Stream []*StreamInfo `json:"streams"`
+}
+
+func (this *CommandResult) GetFormat() *MediaInfo {
+	if this.Format == nil {
+		return &MediaInfo{
+			Duration: "",
+		}
+	}
+
+	return this.Format
+}
+
+func (this *CommandResult) GetStream() *StreamInfo {
+	if this.Stream == nil || len(this.Stream) == 0 {
+		return &StreamInfo{
+			Width: 0,
+			Height: 0,
+		}
+	}
+
+	return this.Stream[0]
 }
 
 type MediaInfo struct {
@@ -119,11 +150,11 @@ func NewFFprobe(binPath string) *FFprobe {
 	}
 }
 
-func (this *FFprobe) GetMediaInfo(mediaPath string) (*MediaInfo, error) {
+func (this *FFprobe) GetMediaInfo(mediaPath string) (*CommandResult, error) {
 	info := &CommandResult{}
 
-	reader, err := NewBuilder(this.bin).SetParams("-v", "error", "-show_entries",
-		"format=duration", "-pretty", "-of", "json", "-hide_banner", "-i",
+	reader, err := NewBuilder(this.bin).SetParams("-v", "error", "-select_streams", "v:0", "-show_entries",
+		"format=duration", "-show_entries", "stream=height,width", "-pretty", "-of", "json", "-hide_banner", "-i",
 		mediaPath).Run()
 	if err != nil {
 		log.Error(err)
@@ -137,18 +168,25 @@ func (this *FFprobe) GetMediaInfo(mediaPath string) (*MediaInfo, error) {
 		return nil, err
 	}
 
-	return info.Format, nil
+	return info, nil
 }
 
 type FFmpeg struct {
 	bin     string
 	builder *CommandBuilder
+	outHeight int
 }
 
 func NewFFmpeg(binPath string) *FFmpeg {
 	return &FFmpeg{
 		bin: binPath,
+		outHeight: 720,
 	}
+}
+
+func (this *FFmpeg) SetOutputHeight(height int) *FFmpeg {
+	this.outHeight = height
+	return this
 }
 
 func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize float64, outPath string) (error) {
@@ -164,6 +202,7 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 	}
 
 	this.builder = NewBuilder(this.bin).SetParams("-i", filepath.ToSlash(mediaPath),
+		"-filter:v", fmt.Sprintf("scale=-1:%d", this.outHeight),
 		"-r", fmt.Sprintf("%f", (splitSize / duration) ),
 		"-vframes", fmt.Sprintf("%d", int(splitSize)),
 		filepath.ToSlash(fmt.Sprintf("%s/snapshot-%%d.png", outPath)))

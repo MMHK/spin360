@@ -66,14 +66,19 @@ func (this *Worker) Split(ctx context.Context, src io.Reader, size int) (io.Read
 			log.Error(err)
 			return err
 		}
-		duration, err := info.GetDuration()
+		duration, err := info.GetFormat().GetDuration()
 		if err != nil {
 			log.Error(err)
 			return err
 		}
+		maxHeight := info.GetStream().Height
+		if maxHeight > this.Conf.MaxVideoHeight {
+			maxHeight = this.Conf.MaxVideoHeight
+		}
 		imageDir := filepath.Join(tempDir, "snap")
 		ffmpeg := NewFFmpeg(this.Conf.FFMpegConf.FFmpeg)
-		err = ffmpeg.SplitSnap(videoPath, duration, float64(size), imageDir)
+		err = ffmpeg.SetOutputHeight(maxHeight).
+			SplitSnap(videoPath, duration, float64(size), imageDir)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -135,14 +140,19 @@ func (this *Worker) S3(src io.Reader, size int) ([]string, error) {
 			log.Error(err)
 			return err
 		}
-		duration, err := info.GetDuration()
+		duration, err := info.GetFormat().GetDuration()
 		if err != nil {
 			log.Error(err)
 			return err
 		}
+		maxHeight := info.GetStream().Height
+		if maxHeight > this.Conf.MaxVideoHeight {
+			maxHeight = this.Conf.MaxVideoHeight
+		}
 		imageDir := filepath.Join(tempDir, "snap")
 		ffmpeg := NewFFmpeg(this.Conf.FFMpegConf.FFmpeg)
-		err = ffmpeg.SplitSnap(videoPath, duration, float64(size), imageDir)
+		err = ffmpeg.SetOutputHeight(maxHeight).
+			SplitSnap(videoPath, duration, float64(size), imageDir)
 		if err != nil {
 			log.Error(err)
 			return err

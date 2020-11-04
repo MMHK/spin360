@@ -6,6 +6,7 @@
     "ffmpeg": "F:/grean/ffmpeg/bin/ffmpeg.exe",
     "ffprobe": "F:/grean/ffmpeg/bin/ffprobe.exe"
   },
+  "max-video-height": 720,
   "s3": {
     "access_key": "",
     "secret_key": "",

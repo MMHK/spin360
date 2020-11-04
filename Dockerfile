@@ -36,6 +36,7 @@ COPY --from=builder /app/spin360/config.json .
 
 ENV HOST=0.0.0.0:3335 \
  SERVICE_NAME=spin360 \
+ MAX_VIDEO_HEIGHT=720 \
  S3_APPKEY= \
  S3_SECRET= \
  S3_BUCKET=s3.test.mixmedia.com \
