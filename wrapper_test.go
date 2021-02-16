@@ -5,9 +5,16 @@ import (
 )
 
 func TestGetMediaInfo(t *testing.T) {
-	handler := NewFFprobe(FFPROBE_BIN)
+	conf, err := loadConfig()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	handler := NewFFprobe(conf.FFMpegConf.FFProbe)
 	//info, err := handler.GetMediaInfo(getLocalPath(MEDIA_PATH))
-	info, err := handler.GetMediaInfo(getLocalPath("data/test.mp4"))
+	info, err := handler.GetMediaInfo(getLocalPath("data/test2.mp4"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -34,8 +41,8 @@ func TestFFmpeg_SplitSnap(t *testing.T) {
 		return
 	}
 
-	videoPath := getLocalPath("data/test2.mp4")
-	imageDir := getLocalPath("temp/snap");
+	videoPath := getLocalPath("data/test.mp4")
+	imageDir := getLocalPath("temp/snap")
 
 	handler := NewFFprobe(conf.FFMpegConf.FFProbe)
 
@@ -59,7 +66,7 @@ func TestFFmpeg_SplitSnap(t *testing.T) {
 
 	ffmpeg := NewFFmpeg(conf.FFMpegConf.FFmpeg)
 	err = ffmpeg.SetOutputHeight(outputHeight).
-		SplitSnap(videoPath, duration, 16, imageDir)
+		SplitSnap(videoPath, duration, 18, imageDir)
 	if err != nil {
 		t.Error(err)
 		t.Fail()

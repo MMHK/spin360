@@ -202,9 +202,9 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 	}
 
 	this.builder = NewBuilder(this.bin).SetParams("-i", filepath.ToSlash(mediaPath),
-		"-filter:v", fmt.Sprintf("scale=-1:%d", this.outHeight),
-		"-r", fmt.Sprintf("%f", (splitSize / duration) ),
-		"-vframes", fmt.Sprintf("%d", int(splitSize)),
+		"-filter:v", fmt.Sprintf("scale=-1:%d,fps=1/%f",
+			this.outHeight,
+			duration / splitSize),
 		filepath.ToSlash(fmt.Sprintf("%s/snapshot-%%d.png", outPath)))
 
 	build := this.builder
