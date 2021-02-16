@@ -12,7 +12,6 @@ COPY . .
 # Build the Go app
 RUN go version \
  && export GO111MODULE=on \
- && export GOPROXY=https://goproxy.io,direct \
  && go mod vendor \
  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o spin360
 
