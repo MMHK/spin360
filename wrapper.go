@@ -167,6 +167,8 @@ func (this *FFprobe) GetMediaInfo(mediaPath string) (*CommandResult, error) {
 		log.Error(err)
 		return nil, err
 	}
+	
+	log.Debugf("resolution: %d x %d", info.GetStream().Width, info.GetStream().Height)
 
 	return info, nil
 }
