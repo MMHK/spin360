@@ -211,7 +211,7 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 	defer close(starQueue)
 	defer close(doneQueue)
 	
-	step := int(duration / splitSize * 1000);
+	step := int(duration / (splitSize - 1) * 1000);
 	stepSec := time.Millisecond * time.Duration(step)
 	current := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	
@@ -224,6 +224,9 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 			}()
 			
 			position := current.Add(stepSec * time.Duration(index)).Format("15:04:05.000")
+			if index == (counter -1) {
+				position = current.Add((stepSec * time.Duration(index)) / time.Millisecond / 1000 * time.Second).Format("15:04:05.000")
+			}
 			
 			this.builder = NewBuilder(this.bin).SetParams(
 				"-ss", position,
@@ -232,6 +235,7 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 				"-filter:v", fmt.Sprintf("scale=-1:%d",
 					this.outHeight),
 				"-vframes", "1",
+				"-vsync", "2",
 				filepath.ToSlash(fmt.Sprintf("%s/snapshot-%d.png", outPath, index + 1)))
 			
 			build := this.builder

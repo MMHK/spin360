@@ -29,12 +29,17 @@ func TestGetMediaInfo(t *testing.T) {
 		return
 	}
 	
-	step := int(duration / 18 * 1000);
+	step := int(duration / 17 * 1000);
 	stepSec := time.Millisecond * time.Duration(step)
 	current := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	
 	for i := 0; i < 18; i++ {
-		t.Log(current.Add(stepSec * time.Duration(i)).Format("15:04:05.000"))
+		t.Log(i)
+		if i == 17 {
+			t.Log(current.Add(stepSec * time.Duration(i) / time.Millisecond / 1000 * time.Second).Format("15:04:05.000"))
+		} else {
+			t.Log(current.Add(stepSec * time.Duration(i)).Format("15:04:05.000"))
+		}
 	}
 	
 	t.Logf("resolution: %d x %d", info.GetStream().Width, info.GetStream().Height)
