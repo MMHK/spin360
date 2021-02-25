@@ -165,7 +165,9 @@ func (this *Worker) S3(src io.Reader, size int) ([]string, error) {
 		}
 		
 		queue := make(chan bool, 0)
+		jobQueue := make(chan bool, 2)
 		defer close(queue)
+		defer close(jobQueue)
 		jobCount := 0
 		
 		err = filepath.Walk(imageDir, func(path string, info os.FileInfo, err error) error {
@@ -179,7 +181,9 @@ func (this *Worker) S3(src io.Reader, size int) ([]string, error) {
 			
 			jobCount++
 			go func(path string, remotePath string, s3 IStorage) {
+				jobQueue <- true
 				defer func() {
+					<-jobQueue
 					queue <- true
 				}()
 				log.Infof("%s => s3:%s", path, remotePath)

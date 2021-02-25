@@ -206,16 +206,15 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 	counter := int(splitSize)
 	starQueue := make(chan bool, 2)
 	doneQueue := make(chan bool, 0)
-	jobCount := 1
+	jobCount := 0
 	
-	defer close(starQueue)
-	defer close(doneQueue)
 	
 	step := int(duration / (splitSize - 1) * 1000);
 	stepSec := time.Millisecond * time.Duration(step)
 	current := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	
 	for i := 0; i < counter; i++ {
+		jobCount++
 		go func(index int) {
 			starQueue <- true
 			defer func() {
@@ -235,7 +234,6 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 				"-filter:v", fmt.Sprintf("scale=-1:%d",
 					this.outHeight),
 				"-vframes", "1",
-				"-vsync", "2",
 				filepath.ToSlash(fmt.Sprintf("%s/snapshot-%d.png", outPath, index + 1)))
 			
 			build := this.builder
@@ -250,11 +248,13 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 		}(i)
 	}
 	
-	for jobCount < counter {
+	for jobCount > 0 {
 		<-doneQueue
-		jobCount++
+		jobCount--
 	}
-
+	
+	defer close(starQueue)
+	defer close(doneQueue)
 
 	return nil
 }
