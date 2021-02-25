@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestGetMediaInfo(t *testing.T) {
@@ -14,7 +15,7 @@ func TestGetMediaInfo(t *testing.T) {
 
 	handler := NewFFprobe(conf.FFMpegConf.FFProbe)
 	//info, err := handler.GetMediaInfo(getLocalPath(MEDIA_PATH))
-	info, err := handler.GetMediaInfo(getLocalPath("data/test2.mp4"))
+	info, err := handler.GetMediaInfo(getLocalPath("data/test3.mp4"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -27,7 +28,15 @@ func TestGetMediaInfo(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	
+	step := int(duration / 18 * 1000);
+	stepSec := time.Millisecond * time.Duration(step)
+	current := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
+	
+	for i := 0; i < 18; i++ {
+		t.Log(current.Add(stepSec * time.Duration(i)).Format("15:04:05.000"))
+	}
+	
 	t.Logf("resolution: %d x %d", info.GetStream().Width, info.GetStream().Height)
 
 	t.Logf("duration: %f", duration)
@@ -41,7 +50,7 @@ func TestFFmpeg_SplitSnap(t *testing.T) {
 		return
 	}
 
-	videoPath := getLocalPath("data/test.mp4")
+	videoPath := getLocalPath("data/test3.mp4")
 	imageDir := getLocalPath("temp/snap")
 
 	handler := NewFFprobe(conf.FFMpegConf.FFProbe)

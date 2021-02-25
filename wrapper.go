@@ -202,22 +202,55 @@ func (this *FFmpeg) SplitSnap(mediaPath string, duration float64, splitSize floa
 	if _, err := os.Stat(outPath); err != nil && os.IsNotExist(err) {
 		os.MkdirAll(outPath, os.ModePerm)
 	}
-
-	this.builder = NewBuilder(this.bin).SetParams("-i", filepath.ToSlash(mediaPath),
-		"-filter:v", fmt.Sprintf("scale=-1:%d,fps=1/%f",
-			this.outHeight,
-			duration / splitSize),
-		filepath.ToSlash(fmt.Sprintf("%s/snapshot-%%d.png", outPath)))
-
-	build := this.builder
-	done, err := build.Start()
-	if err != nil {
-		log.Error(err)
-		return err
+	
+	counter := int(splitSize)
+	starQueue := make(chan bool, 2)
+	doneQueue := make(chan bool, 0)
+	jobCount := 1
+	
+	defer close(starQueue)
+	defer close(doneQueue)
+	
+	step := int(duration / splitSize * 1000);
+	stepSec := time.Millisecond * time.Duration(step)
+	current := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
+	
+	for i := 0; i < counter; i++ {
+		go func(index int) {
+			starQueue <- true
+			defer func() {
+				<-starQueue
+				doneQueue <- true
+			}()
+			
+			position := current.Add(stepSec * time.Duration(index)).Format("15:04:05.000")
+			
+			this.builder = NewBuilder(this.bin).SetParams(
+				"-ss", position,
+				"-y",
+				"-i", filepath.ToSlash(mediaPath),
+				"-filter:v", fmt.Sprintf("scale=-1:%d",
+					this.outHeight),
+				"-vframes", "1",
+				filepath.ToSlash(fmt.Sprintf("%s/snapshot-%d.png", outPath, index + 1)))
+			
+			build := this.builder
+			done, err := build.Start()
+			if err != nil {
+				log.Error(err)
+			}
+			
+			<- done
+			defer close(done)
+			
+		}(i)
+	}
+	
+	for jobCount < counter {
+		<-doneQueue
+		jobCount++
 	}
 
-	<- done
-	defer close(done)
 
 	return nil
 }
